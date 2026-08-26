@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Giriş Yap — Budgy</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/api.js"></script>
+    <script src="js/guard.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <h1 class="gradient-text">Budgy</h1>
+      <p class="subtitle">Hedeflerine ortaklaşa ulaş.</p>
+
+      <div class="card">
+        <form id="login-form">
+          <label for="email">E-posta</label>
+          <input id="email" type="email" required autocomplete="email" />
+
+          <label for="password">Şifre</label>
+          <input id="password" type="password" required autocomplete="current-password" />
+
+          <button class="full" type="submit">Giriş Yap</button>
+          <p class="error" id="error"></p>
+        </form>
+      </div>
+
+      <p class="hint">Hesabın yok mu? <a href="register.html">Kayıt ol</a></p>
+    </div>
+
+    <script>
+      redirectIfAuthed();
+
+      const form = document.getElementById("login-form");
+      const errorEl = document.getElementById("error");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        try {
+          const { access_token } = await api.login(email, password);
+          setToken(access_token);
+          window.location.href = "dashboard.html";
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      });
+    </script>
+  </body>
+</html>

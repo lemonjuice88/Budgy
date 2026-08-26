@@ -1,0 +1,12 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0.29
+aiosqlite>=0.20        # dev DB driver (SQLite, async)
+asyncpg>=0.29           # production DB driver (PostgreSQL, async)
+pydantic>=2.6
+pydantic-settings>=2.2
+email-validator>=2.1     # required for Pydantic's EmailStr
+PyJWT>=2.8
+bcrypt>=4.1
+httpx>=0.27           # calls the Frankfurter exchange-rate API for currency conversion
+python-multipart>=0.0.9  # required by OAuth2PasswordRequestForm (/login)

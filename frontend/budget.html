@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bütçe Detayı — Budgy</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/api.js"></script>
+    <script src="js/guard.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  </head>
+  <body>
+    <div class="page-wide" style="max-width: 640px">
+      <a class="back-link" href="dashboard.html">← Bütçelerim</a>
+
+      <div id="content">
+        <p class="empty">Yükleniyor…</p>
+      </div>
+    </div>
+
+    <script>
+      requireAuth();
+
+      const params = new URLSearchParams(window.location.search);
+      const budgetId = Number(params.get("id"));
+      if (!budgetId) window.location.href = "dashboard.html";
+
+      const contentEl = document.getElementById("content");
+      let chartInstance = null;
+      let txType = "deposit";
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function currencyOptions(selected) {
+        return SUPPORTED_CURRENCIES.map(
+          (c) => `<option value="${c}" ${c === selected ? "selected" : ""}>${c}</option>`
+        ).join("");
+      }
+
+      function drawChart(budget) {
+        const canvas = document.getElementById("budget-chart");
+        const ctx = canvas.getContext("2d");
+
+        const filled = Math.max(0, budget.current_amount);
+        const remaining = Math.max(0, budget.target_amount - filled);
+        const overfunded = budget.current_amount > budget.target_amount;
+
+        const gradient = ctx.createLinearGradient(0, 0, 180, 180);
+        gradient.addColorStop(0, "#ff3366");
+        gradient.addColorStop(1, "#9b3dff");
+
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: ["Toplanan", "Kalan"],
+            datasets: [
+              {
+                data: overfunded ? [1, 0] : [filled, remaining || 0.0001],
+                backgroundColor: [gradient, "#2b1740"],
+                borderWidth: 0,
+                hoverOffset: 6,
+              },
+            ],
+          },
+          options: {
+            cutout: "72%",
+            animation: { animateRotate: true, duration: 900, easing: "easeOutQuart" },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (item) =>
+                    item.label === "Toplanan"
+                      ? `${filled.toLocaleString("tr-TR")} ${budget.base_currency}`
+                      : `${remaining.toLocaleString("tr-TR")} ${budget.base_currency} kaldı`,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function renderTxRows(transactions) {
+        if (transactions.length === 0) {
+          return '<tr><td colspan="5" class="empty">Henüz işlem yok.</td></tr>';
+        }
+        return transactions
+          .map((t) => {
+            const meta = TX_TYPE_LABELS[t.type];
+            const sign = t.converted_amount < 0 ? "-" : "+";
+            const amountClass = t.converted_amount < 0 ? "amount-negative" : "amount-positive";
+            const date = new Date(t.created_at).toLocaleString("tr-TR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            return `
+              <tr>
+                <td>${date}</td>
+                <td>${escapeHtml(t.username)}</td>
+                <td>${t.original_amount.toLocaleString("tr-TR")} ${t.original_currency}</td>
+                <td class="${amountClass}">${sign}${Math.abs(t.converted_amount).toLocaleString("tr-TR")} ${t.budget.base_currency}</td>
+                <td>
+                  <span class="badge ${meta.badge}">${meta.icon} ${meta.label}</span>
+                  ${t.note ? `<span class="tx-note">${escapeHtml(t.note)}</span>` : ""}
+                </td>
+              </tr>`;
+          })
+          .join("");
+      }
+
+      function setTxType(type) {
+        txType = type;
+        document.getElementById("seg-deposit").classList.toggle("active", type === "deposit");
+        document.getElementById("seg-withdraw").classList.toggle("active", type === "withdrawal");
+        document.getElementById("seg-withdraw").classList.toggle("withdraw-active", type === "withdrawal");
+        document.getElementById("tx-submit-btn").textContent = type === "deposit" ? "Ekle" : "Çıkar";
+      }
+
+      async function render(budget) {
+        const isOwner = budget.created_by === currentUserId();
+
+        contentEl.innerHTML = `
+          <div class="topbar" style="align-items: flex-start">
+            <div>
+              <h1 class="gradient-text">${escapeHtml(budget.title)}</h1>
+              <p class="subtitle" style="margin: 0">
+                Bütçe #${budget.id} · ${budget.base_currency}${budget.is_completed ? " · 🏆 Tamamlandı" : ""}
+              </p>
+            </div>
+            ${
+              isOwner
+                ? `<div class="row">
+                    <button class="secondary" id="toggle-complete-btn">
+                      ${budget.is_completed ? "↩️ Geri Aç" : "✅ Tamamla"}
+                    </button>
+                    <button class="secondary" id="delete-btn" style="color: var(--danger); border-color: var(--danger)">
+                      🗑️ Sil
+                    </button>
+                  </div>`
+                : ""
+            }
+          </div>
+
+          <div class="card chart-card">
+            <div class="chart-wrap">
+              <canvas id="budget-chart" width="180" height="180"></canvas>
+              <div class="chart-center">
+                <span class="percentage">%${budget.percentage}</span>
+                <span class="label">tamamlandı</span>
+              </div>
+            </div>
+            <div class="chart-stats">
+              <div class="amount">${budget.current_amount.toLocaleString("tr-TR")} ${budget.base_currency}</div>
+              <div class="amounts">Hedef: ${budget.target_amount.toLocaleString("tr-TR")} ${budget.base_currency}</div>
+            </div>
+          </div>
+
+          <p class="section-title">Para Ekle / Çıkar</p>
+          <div class="card">
+            <form id="tx-form">
+              <div class="segmented">
+                <button type="button" id="seg-deposit" class="active">💰 Para Ekle</button>
+                <button type="button" id="seg-withdraw">➖ Para Çıkar</button>
+              </div>
+
+              <div class="amount-row">
+                <div>
+                  <label for="amount">Tutar</label>
+                  <input id="amount" type="number" required min="0.01" step="0.01" placeholder="100" />
+                </div>
+                <div>
+                  <label for="tx-currency">Birim</label>
+                  <select id="tx-currency">${currencyOptions(budget.base_currency)}</select>
+                </div>
+              </div>
+
+              <label for="tx-note">Açıklama (opsiyonel)</label>
+              <input id="tx-note" type="text" placeholder="örn. Ağustos maaşından ayırdım" />
+
+              <button class="full" type="submit" id="tx-submit-btn">Ekle</button>
+              <p class="error" id="tx-error"></p>
+              <p class="toast" id="tx-toast"></p>
+            </form>
+          </div>
+
+          <p class="section-title">Tasarruf</p>
+          <div class="card">
+            <form id="saving-form">
+              <label for="saving-note">Ne yapmadın? 🍃</label>
+              <input id="saving-note" type="text" placeholder="Bugün dışarıda kahve içmedim" />
+
+              <div class="amount-row">
+                <div>
+                  <label for="saving-amount">Tutar</label>
+                  <input id="saving-amount" type="number" required min="0.01" step="0.01" placeholder="100" />
+                </div>
+                <div>
+                  <label for="saving-currency">Birim</label>
+                  <select id="saving-currency">${currencyOptions(budget.base_currency)}</select>
+                </div>
+              </div>
+
+              <button class="full savings" type="submit">🍃 Tasarruf Ettim</button>
+              <p class="error" id="saving-error"></p>
+            </form>
+          </div>
+
+          <p class="section-title">Davet</p>
+          <div class="card">
+            <p class="subtitle" style="margin: 0 0 10px">Bu bütçeye başkalarının katılması için bu kodu paylaş:</p>
+            <div class="row">
+              <span class="invite-code">${budget.invite_code}</span>
+              <button class="secondary" id="copy-btn">Kopyala</button>
+            </div>
+          </div>
+
+          <p class="section-title">Katkı Geçmişi</p>
+          <div class="tx-table-wrap">
+            <table class="tx-table">
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Kim Ekledi</th>
+                  <th>Miktar</th>
+                  <th>Bütçeye Yansıyan</th>
+                  <th>Tip</th>
+                </tr>
+              </thead>
+              <tbody id="tx-rows">
+                <tr><td colspan="5" class="empty">Yükleniyor…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        drawChart(budget);
+
+        if (isOwner) {
+          document.getElementById("toggle-complete-btn").addEventListener("click", () =>
+            onToggleComplete(budget)
+          );
+          document.getElementById("delete-btn").addEventListener("click", () => onDelete(budget));
+        }
+
+        document.getElementById("seg-deposit").addEventListener("click", () => setTxType("deposit"));
+        document.getElementById("seg-withdraw").addEventListener("click", () => setTxType("withdrawal"));
+        document.getElementById("tx-form").addEventListener("submit", onSubmitTransaction);
+        document.getElementById("saving-form").addEventListener("submit", onSubmitSaving);
+        document.getElementById("copy-btn").addEventListener("click", () => {
+          navigator.clipboard.writeText(budget.invite_code);
+          const btn = document.getElementById("copy-btn");
+          btn.textContent = "Kopyalandı!";
+          setTimeout(() => (btn.textContent = "Kopyala"), 1500);
+        });
+
+        loadTransactions();
+      }
+
+      async function loadTransactions() {
+        const rowsEl = document.getElementById("tx-rows");
+        try {
+          const transactions = await api.listTransactions(budgetId);
+          rowsEl.innerHTML = renderTxRows(transactions);
+        } catch (err) {
+          rowsEl.innerHTML = `<tr><td colspan="5" class="error">${err.message}</td></tr>`;
+        }
+      }
+
+      async function onSubmitTransaction(e) {
+        e.preventDefault();
+        const errorEl = document.getElementById("tx-error");
+        const toastEl = document.getElementById("tx-toast");
+        errorEl.textContent = "";
+        toastEl.textContent = "";
+        const original_amount = parseFloat(document.getElementById("amount").value);
+        const original_currency = document.getElementById("tx-currency").value;
+        const note = document.getElementById("tx-note").value.trim();
+
+        try {
+          const tx = await api.addTransaction(budgetId, {
+            original_amount,
+            original_currency,
+            type: txType,
+            note: note || null,
+          });
+          await render(tx.budget);
+          document.getElementById("tx-toast").textContent = "İşlem kaydedildi.";
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      }
+
+      async function onSubmitSaving(e) {
+        e.preventDefault();
+        const errorEl = document.getElementById("saving-error");
+        errorEl.textContent = "";
+        const note = document.getElementById("saving-note").value.trim();
+        const original_amount = parseFloat(document.getElementById("saving-amount").value);
+        const original_currency = document.getElementById("saving-currency").value;
+
+        try {
+          const tx = await api.addTransaction(budgetId, {
+            original_amount,
+            original_currency,
+            type: "saving",
+            note: note || null,
+          });
+          await render(tx.budget);
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      }
+
+      async function onToggleComplete(budget) {
+        try {
+          const updated = await api.setBudgetCompleted(budget.id, !budget.is_completed);
+          await render(updated);
+        } catch (err) {
+          alert(err.message);
+        }
+      }
+
+      async function onDelete(budget) {
+        const sure = confirm(
+          `"${budget.title}" bütçesini kalıcı olarak silmek istediğine emin misin? Tüm katkılar ve işlem geçmişi de silinecek.`
+        );
+        if (!sure) return;
+
+        try {
+          await api.deleteBudget(budget.id);
+          window.location.href = "dashboard.html";
+        } catch (err) {
+          alert(err.message);
+        }
+      }
+
+      async function load() {
+        try {
+          const budget = await api.getBudget(budgetId);
+          await render(budget);
+        } catch (err) {
+          contentEl.innerHTML = `<p class="error">Bu bütçe bulunamadı ya da üyesi değilsin.</p>`;
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>

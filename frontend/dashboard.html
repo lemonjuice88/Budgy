@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bütçelerim — Budgy</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/api.js"></script>
+    <script src="js/guard.js"></script>
+  </head>
+  <body>
+    <div class="page-wide">
+      <div class="topbar">
+        <div>
+          <h1 class="gradient-text">Bütçelerim</h1>
+          <p class="subtitle" style="margin: 0">Sahip olduğun ve katıldığın tüm bütçeler.</p>
+        </div>
+        <div class="row">
+          <span class="user" id="user-email"></span>
+          <button class="secondary" id="logout-btn">Çıkış Yap</button>
+        </div>
+      </div>
+
+      <div class="segmented" style="max-width: 320px; margin-bottom: 16px">
+        <button type="button" id="tab-active" class="active">Aktif Bütçeler</button>
+        <button type="button" id="tab-completed">🏆 Tamamlanan Hedefler</button>
+      </div>
+
+      <div id="budget-list" class="budget-list">
+        <p class="empty">Yükleniyor…</p>
+      </div>
+
+      <p class="section-title">Yeni Bütçe Oluştur</p>
+      <div class="card">
+        <form id="create-form">
+          <label for="title">Başlık</label>
+          <input id="title" type="text" required placeholder="Tatil Fonu" />
+
+          <div class="amount-row">
+            <div>
+              <label for="target">Hedef Tutar</label>
+              <input id="target" type="number" required min="0.01" step="0.01" placeholder="1000" />
+            </div>
+            <div>
+              <label for="currency">Para Birimi</label>
+              <select id="currency"></select>
+            </div>
+          </div>
+
+          <button class="full" type="submit">Oluştur</button>
+          <p class="error" id="create-error"></p>
+        </form>
+      </div>
+
+      <p class="section-title">Bir Bütçeye Katıl</p>
+      <div class="card">
+        <form id="join-form">
+          <label for="join-code">Bütçe ID veya Davet Kodu</label>
+          <input id="join-code" type="text" required placeholder="örn. 3 veya a1b2c3..." />
+
+          <button class="full" type="submit">Katıl</button>
+          <p class="error" id="join-error"></p>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      requireAuth();
+      document.getElementById("user-email").textContent = currentUsername() || "";
+
+      const currencySelect = document.getElementById("currency");
+      currencySelect.innerHTML = SUPPORTED_CURRENCIES.map((c) => `<option value="${c}">${c}</option>`).join("");
+
+      document.getElementById("logout-btn").addEventListener("click", () => {
+        clearToken();
+        window.location.href = "login.html";
+      });
+
+      let activeTab = "active";
+
+      function setTab(tab) {
+        activeTab = tab;
+        document.getElementById("tab-active").classList.toggle("active", tab === "active");
+        document.getElementById("tab-completed").classList.toggle("active", tab === "completed");
+        loadBudgets();
+      }
+
+      document.getElementById("tab-active").addEventListener("click", () => setTab("active"));
+      document.getElementById("tab-completed").addEventListener("click", () => setTab("completed"));
+
+      async function loadBudgets() {
+        const listEl = document.getElementById("budget-list");
+        listEl.innerHTML = '<p class="empty">Yükleniyor…</p>';
+        try {
+          const budgets = await (activeTab === "active" ? api.listBudgets() : api.listCompletedBudgets());
+          if (budgets.length === 0) {
+            listEl.innerHTML =
+              activeTab === "active"
+                ? '<p class="empty">Henüz bir bütçen yok. Aşağıdan yeni bir tane oluştur veya birine katıl.</p>'
+                : '<p class="empty">Henüz tamamlanmış bir hedefin yok.</p>';
+            return;
+          }
+          listEl.innerHTML = budgets
+            .map((b) => {
+              const pct = Math.max(0, Math.min(100, b.percentage));
+              return `
+                <a class="budget-item" href="budget.html?id=${b.id}">
+                  <div class="title">${b.is_completed ? "🏆 " : ""}${escapeHtml(b.title)}</div>
+                  <div class="progress"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                  <div class="amounts">
+                    <span>${b.current_amount.toLocaleString("tr-TR")} / ${b.target_amount.toLocaleString("tr-TR")} ${b.base_currency}</span>
+                    <span>%${b.percentage}</span>
+                  </div>
+                </a>`;
+            })
+            .join("");
+        } catch (err) {
+          listEl.innerHTML = `<p class="error">${err.message}</p>`;
+        }
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      document.getElementById("create-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById("create-error");
+        errorEl.textContent = "";
+        const title = document.getElementById("title").value.trim();
+        const target = parseFloat(document.getElementById("target").value);
+        const currency = currencySelect.value;
+        try {
+          await api.createBudget(title, target, currency);
+          e.target.reset();
+          loadBudgets();
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      });
+
+      document.getElementById("join-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById("join-error");
+        errorEl.textContent = "";
+        const raw = document.getElementById("join-code").value.trim();
+        const asNumber = Number(raw);
+        const payload = Number.isInteger(asNumber) && String(asNumber) === raw
+          ? { budget_id: asNumber }
+          : { invite_code: raw };
+        try {
+          await api.joinBudget(payload);
+          e.target.reset();
+          loadBudgets();
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      });
+
+      loadBudgets();
+    </script>
+  </body>
+</html>

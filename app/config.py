@@ -1,0 +1,20 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """
+    Central config. Reads from environment / .env file.
+    Swapping DATABASE_URL from sqlite+aiosqlite:// to postgresql+asyncpg://
+    is the only change needed to move from dev to production.
+    """
+
+    database_url: str = "sqlite+aiosqlite:///./budgy.db"
+
+    secret_key: str = "change-this-to-a-long-random-string"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+
+settings = Settings()
