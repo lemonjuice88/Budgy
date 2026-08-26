@@ -24,11 +24,6 @@ function isLoggedIn() {
   return !!getToken();
 }
 
-// Decodes the JWT payload client-side. Not a security check — the backend
-// still verifies the signature on every request.
-
-// Reads the `uid` claim so the frontend can show owner-only
-// controls (complete / delete) without an extra round trip.
 function currentUserId() {
   const token = getToken();
   if (!token) return null;
@@ -41,7 +36,6 @@ function currentUserId() {
   }
 }
 
-// Reads the `uname` claim for display purposes (topbar greeting etc).
 function currentUsername() {
   const token = getToken();
   if (!token) return null;

@@ -1,29 +1,28 @@
 # Budgy
 
-Ortak bütçe ve hedef planlama uygulaması. Birden fazla kullanıcı aynı bütçeye
-katılıp ortaklaşa para ekleyebilir, farklı para birimlerinde katkı yapabilir,
-tasarruflarını kaydedebilir ve hedefe ne kadar yaklaştıklarını canlı bir
-grafikle takip edebilir.
+A shared budget and savings-goal planner. Multiple people can join the same
+budget and contribute together, add money in different currencies, log
+savings, and track progress toward the goal with a live chart.
 
-**Canlı demo:** https://budgy-r3vf.onrender.com
+**Live demo:** https://budgy-r3vf.onrender.com
 
-## Özellikler
+## Features
 
-- E-posta + kullanıcı adı ile kayıt, JWT ile kimlik doğrulama
-- Bütçe oluşturma, davet kodu veya bütçe ID'siyle bütçeye katılma (many-to-many)
-- Bütçeye istediğin para biriminde (TRY, EUR, USD, GBP, CHF) katkı ekleme —
-  anlık kur üzerinden otomatik çevrim ([Frankfurter API](https://frankfurter.dev))
-- "Tasarruf Ettim" özelliği: harcamadığın parayı da bütçeye pozitif katkı olarak ekle
-- Animasyonlu pasta grafikle ilerleme takibi, detaylı katkı geçmişi tablosu
-- Bütçeyi tamamlama / silme; tamamlanan hedefler ayrı bir sekmede
+- Email + username registration, JWT authentication
+- Create budgets, join one by invite code or budget ID (many-to-many membership)
+- Contribute in any supported currency (TRY, EUR, USD, GBP, CHF) — automatically
+  converted at the live exchange rate via the [Frankfurter API](https://frankfurter.dev)
+- "I saved" feature: log money you didn't spend as a positive contribution
+- Animated progress chart and a detailed contribution history table
+- Mark a budget complete or delete it; completed goals live in their own tab
 
-## Teknoloji
+## Tech stack
 
 - **Backend:** FastAPI, SQLAlchemy (async), Pydantic, JWT (PyJWT), bcrypt
-- **Veritabanı:** Geliştirmede SQLite, üretimde PostgreSQL (`DATABASE_URL` değişimiyle, kod değişmeden)
-- **Frontend:** Vanilla HTML/CSS/JS (build adımı yok), Chart.js ile grafik — backend tarafından aynı origin'den servis ediliyor
+- **Database:** SQLite in development, PostgreSQL in production (swap `DATABASE_URL`, no code changes)
+- **Frontend:** Vanilla HTML/CSS/JS (no build step), Chart.js — served by the backend from the same origin
 
-## Yerel kurulum
+## Local setup
 
 ```bash
 python -m venv .venv
@@ -32,20 +31,20 @@ cp .env.example .env
 .venv/Scripts/uvicorn app.main:app --reload
 ```
 
-`http://localhost:8000/` adresini aç.
+Open `http://localhost:8000/`.
 
-## Proje yapısı
+## Project structure
 
 ```
 app/
-  main.py            # FastAPI app, router'ları ve statik frontend'i bağlar
-  models.py          # SQLAlchemy modelleri (User, Budget, BudgetMember, Transaction)
-  schemas.py         # Pydantic şemaları
-  auth.py            # JWT + şifre hashleme
-  database.py        # Async engine/session, DATABASE_URL normalizasyonu
-  currency.py        # Anlık kur çevrimi
-  budget_access.py   # Üyelik/sahiplik kontrolü (paylaşılan yardımcılar)
-  routers/           # auth, budgets, transactions endpoint'leri
+  main.py            FastAPI app; wires up the routers and the static frontend
+  models.py          SQLAlchemy models (User, Budget, BudgetMember, Transaction)
+  schemas.py         Pydantic schemas
+  auth.py            JWT issuance/verification and password hashing
+  database.py        Async engine/session, DATABASE_URL normalization
+  currency.py        Live exchange-rate conversion
+  budget_access.py   Shared membership/ownership checks
+  routers/           auth, budgets, and transactions endpoints
 frontend/
-  *.html, css/, js/  # Statik sayfalar (login, dashboard, bütçe detayı)
+  *.html, css/, js/  Static pages (login, dashboard, budget detail)
 ```

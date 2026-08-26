@@ -281,8 +281,6 @@ button.savings {
   min-height: 1em;
 }
 
-/* ---------- Budget detail: chart + type toggle + savings ---------- */
-
 .chart-card {
   display: flex;
   align-items: center;
@@ -369,8 +367,6 @@ button.savings {
   grid-template-columns: 1fr 100px;
   gap: 10px;
 }
-
-/* ---------- Transaction history table ---------- */
 
 .tx-table-wrap {
   overflow-x: auto;

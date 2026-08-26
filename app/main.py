@@ -12,8 +12,6 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Dev convenience only: creates tables from the models if they don't exist yet.
-    # Use Alembic migrations instead of this once you move to PostgreSQL/production.
     await init_models()
     yield
 
@@ -30,7 +28,4 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Mounted last, at the root: API routes above always match first, anything
-# else (/, /login.html, /dashboard.html, ...) falls through to the static
-# frontend. Same-origin, so no CORS setup is needed between them.
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

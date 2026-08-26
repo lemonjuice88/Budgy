@@ -4,8 +4,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, fie
 
 from app.models import TransactionType
 
-# ---------- Auth / User ----------
-
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -25,9 +23,6 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-
-# ---------- Budget ----------
 
 
 class BudgetCreate(BaseModel):
@@ -77,9 +72,6 @@ class BudgetOut(BaseModel):
         return round((self.current_amount / self.target_amount) * 100, 2)
 
 
-# ---------- Transaction ----------
-
-
 class TransactionCreate(BaseModel):
     original_amount: float = Field(gt=0)
     original_currency: str = Field(min_length=3, max_length=3)
@@ -105,7 +97,4 @@ class TransactionOut(BaseModel):
     type: TransactionType
     note: str | None
     created_at: datetime
-
-    # Fresh snapshot of the budget after this transaction, so the frontend
-    # can update current_amount/percentage without a second request.
     budget: BudgetOut

@@ -25,7 +25,7 @@ async def create_budget(
         created_by=current_user.id,
     )
     db.add(budget)
-    await db.flush()  # assign budget.id before creating the membership row
+    await db.flush()
 
     db.add(BudgetMember(budget_id=budget.id, user_id=current_user.id))
     await db.commit()
@@ -38,13 +38,10 @@ async def list_my_budgets(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Budget]:
-    # Owner is auto-enrolled as a BudgetMember on creation, so this single join
-    # covers both "owns" and "joined later" cases. Completed budgets live in
-    # /budgets/completed instead, so the main dashboard stays uncluttered.
     result = await db.execute(
         select(Budget)
         .join(BudgetMember, BudgetMember.budget_id == Budget.id)
-        .where(BudgetMember.user_id == current_user.id, Budget.is_completed == False)  # noqa: E712
+        .where(BudgetMember.user_id == current_user.id, Budget.is_completed == False)
         .order_by(Budget.created_at.desc())
     )
     return list(result.scalars().all())
@@ -58,7 +55,7 @@ async def list_completed_budgets(
     result = await db.execute(
         select(Budget)
         .join(BudgetMember, BudgetMember.budget_id == Budget.id)
-        .where(BudgetMember.user_id == current_user.id, Budget.is_completed == True)  # noqa: E712
+        .where(BudgetMember.user_id == current_user.id, Budget.is_completed == True)
         .order_by(Budget.created_at.desc())
     )
     return list(result.scalars().all())
@@ -98,7 +95,6 @@ async def delete_budget(
     budget = await get_budget_for_member(budget_id, current_user, db)
     require_owner(budget, current_user)
 
-    # Cascades to BudgetMember and Transaction rows (see relationship config in models.py).
     await db.delete(budget)
     await db.commit()
 

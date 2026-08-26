@@ -11,10 +11,9 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 
-# Points at the /login endpoint so Swagger UI's "Authorize" button works out of the box.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-_BCRYPT_MAX_BYTES = 72  # bcrypt silently ignores bytes beyond this; truncate explicitly
+_BCRYPT_MAX_BYTES = 72
 
 
 def hash_password(password: str) -> str:
@@ -33,9 +32,6 @@ def create_access_token(
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    # `uid`/`uname` are purely frontend convenience (e.g. "am I the owner of
-    # this budget?", "what's my display name?") — the backend still
-    # authenticates and looks up users via `sub`.
     payload = {"sub": subject, "uid": user_id, "uname": username, "exp": expire}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 

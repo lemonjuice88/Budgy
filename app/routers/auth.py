@@ -38,7 +38,6 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> Token:
-    # OAuth2PasswordRequestForm's `username` field carries the email.
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(form_data.password, user.hashed_password):

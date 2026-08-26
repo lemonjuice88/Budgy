@@ -1,12 +1,10 @@
 import httpx
 from fastapi import HTTPException, status
 
-# Free, no-API-key exchange rate service backed by ECB reference rates.
 FRANKFURTER_URL = "https://api.frankfurter.dev/v1/latest"
 
 
 async def convert_amount(amount: float, from_currency: str, to_currency: str) -> float:
-    """Converts `amount` from `from_currency` to `to_currency` at the current rate."""
     from_currency = from_currency.upper()
     to_currency = to_currency.upper()
 

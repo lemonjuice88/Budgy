@@ -6,7 +6,6 @@ from app.models import Budget, BudgetMember, User
 
 
 async def get_budget_for_member(budget_id: int, current_user: User, db: AsyncSession) -> Budget:
-    """Fetches a budget the current user belongs to, or raises 404/403."""
     budget = await db.get(Budget, budget_id)
     if budget is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Bütçe bulunamadı")

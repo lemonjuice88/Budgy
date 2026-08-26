@@ -21,8 +21,6 @@ async def add_transaction(
 ) -> TransactionOut:
     budget = await get_budget_for_member(budget_id, current_user, db)
 
-    # Deposits and savings both add to the budget's converted total;
-    # withdrawals subtract from it.
     converted = await convert_amount(payload.original_amount, payload.original_currency, budget.base_currency)
     signed_amount = -converted if payload.type == TransactionType.withdrawal else converted
 
@@ -37,8 +35,6 @@ async def add_transaction(
     )
     db.add(transaction)
 
-    # Atomic UPDATE rather than a read-modify-write in Python, so concurrent
-    # contributions from different members can't clobber each other.
     await db.execute(
         update(Budget)
         .where(Budget.id == budget_id)

@@ -39,23 +39,15 @@ class Budget(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Stored as NUMERIC for precise money math, but handed back to Python as
-    # plain floats (asdecimal=False) so the app/schema layer stays simple.
     target_amount: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), nullable=False)
     current_amount: Mapped[float] = mapped_column(
         Numeric(12, 2, asdecimal=False), nullable=False, default=0
     )
 
-    # The currency target_amount/current_amount are denominated in. Transactions
-    # made in a different currency get converted into this one on the way in.
     base_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="TRY")
 
-    # True once the owner marks the goal reached. Completed budgets are hidden
-    # from the main dashboard list and shown in a separate "Tamamlanan Hedefler" view.
     is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Unique, non-sequential code so budgets can be shared for joining
-    # without exposing/guessing the numeric primary key.
     invite_code: Mapped[str] = mapped_column(
         String(32), unique=True, index=True, default=lambda: uuid.uuid4().hex
     )
@@ -73,13 +65,6 @@ class Budget(Base):
 
 
 class BudgetMember(Base):
-    """Bridge table (as an association object) for the User <-> Budget many-to-many.
-
-    The budget owner is also inserted here on creation, so 'is this user part of
-    this budget' is always a single BudgetMember lookup, whether they own it or
-    joined it later.
-    """
-
     __tablename__ = "budget_members"
     __table_args__ = (UniqueConstraint("budget_id", "user_id", name="uq_budget_member"),)
 
@@ -93,14 +78,6 @@ class BudgetMember(Base):
 
 
 class Transaction(Base):
-    """One row per deposit / withdrawal / savings contribution.
-
-    `original_amount`/`original_currency` are exactly what the user typed.
-    `converted_amount` is that amount converted into the budget's
-    `base_currency` at the live exchange rate, signed (negative for
-    withdrawals) so `Budget.current_amount` can just be summed from it.
-    """
-
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)

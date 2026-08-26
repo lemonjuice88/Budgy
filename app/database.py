@@ -8,15 +8,6 @@ from app.config import settings
 
 
 def _prepare_database_url(url: str) -> tuple[str, dict]:
-    """Makes `DATABASE_URL` forgiving of what hosted providers hand out as-is.
-
-    - SQLite needs `check_same_thread=False` to be usable across the async event loop.
-    - A plain `postgresql://` URL (what Neon/Render/Supabase give you) is upgraded
-      to the asyncpg driver.
-    - asyncpg doesn't understand the libpq-style `?sslmode=require` query param
-      (it raises `TypeError: unexpected keyword argument 'sslmode'`), so that's
-      translated into an asyncpg `ssl` connect arg instead.
-    """
     if "sqlite" in url:
         return url, {"check_same_thread": False}
 
@@ -49,6 +40,5 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_models() -> None:
-    """Dev-only convenience. Use Alembic migrations for production instead."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
