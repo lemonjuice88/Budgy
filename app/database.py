@@ -1,15 +1,40 @@
 from collections.abc import AsyncGenerator
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-# `connect_args` is only needed for SQLite (allows use across the async event loop).
-# It's a no-op concern for PostgreSQL, so nothing else changes when you switch drivers.
-connect_args = {"check_same_thread": False} if "sqlite" in settings.database_url else {}
 
-engine = create_async_engine(settings.database_url, connect_args=connect_args, future=True)
+def _prepare_database_url(url: str) -> tuple[str, dict]:
+    """Makes `DATABASE_URL` forgiving of what hosted providers hand out as-is.
+
+    - SQLite needs `check_same_thread=False` to be usable across the async event loop.
+    - A plain `postgresql://` URL (what Neon/Render/Supabase give you) is upgraded
+      to the asyncpg driver.
+    - asyncpg doesn't understand the libpq-style `?sslmode=require` query param
+      (it raises `TypeError: unexpected keyword argument 'sslmode'`), so that's
+      translated into an asyncpg `ssl` connect arg instead.
+    """
+    if "sqlite" in url:
+        return url, {"check_same_thread": False}
+
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query))
+    connect_args = {}
+    if query.pop("sslmode", None) == "require":
+        connect_args["ssl"] = "require"
+    clean_url = urlunsplit(parts._replace(query=urlencode(query)))
+
+    return clean_url, connect_args
+
+
+database_url, connect_args = _prepare_database_url(settings.database_url)
+engine = create_async_engine(database_url, connect_args=connect_args, future=True)
 
 AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 

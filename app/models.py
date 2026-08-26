@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -25,7 +25,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     owned_budgets: Mapped[list["Budget"]] = relationship(
         back_populates="owner", foreign_keys="Budget.created_by"
@@ -61,7 +61,7 @@ class Budget(Base):
     )
 
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     owner: Mapped["User"] = relationship(back_populates="owned_budgets", foreign_keys=[created_by])
     members: Mapped[list["BudgetMember"]] = relationship(
@@ -86,7 +86,7 @@ class BudgetMember(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     budget_id: Mapped[int] = mapped_column(ForeignKey("budgets.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    joined_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     budget: Mapped["Budget"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="memberships")
@@ -116,7 +116,7 @@ class Transaction(Base):
     )
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     budget: Mapped["Budget"] = relationship(back_populates="transactions")
     user: Mapped["User"] = relationship()
